@@ -1,21 +1,30 @@
 ---
-title: "Prioritizing potential aquaculture"
+title: "Prioritizing Potential Aquaculture"
 author: "Hylaea Miller"
 date: "11/26/2025"
 format: pdf
 execute: 
   message: false
   warning: false
+  output: false
 ---
 ## Background
 
+Considering the important role that marine aquaculture plays in the global food supply, this analysis aims to determine which Exclusive Economic Zones (EEZs) on the West Coast of the US are best suited for developing marine aquaculture for oysters and the Atlantic seabob shrimp, as well as to build a generalized function for marine species that identifies suitable locations when specifying the range of acceptable sea surface temperature (SST) and depth values.
 
 ## Data
+
+-   **Sea Surface Temperature**: Annual sea surface temperature (SST) from the years 2008 to 2012. The dataset can be found here: [NOAA’s 5km Daily Global Satellite Sea Surface Temperature Anomaly v3.1.](https://coralreefwatch.noaa.gov/product/5km/index_5km_ssta.php)
+
+-   **Bathymetry**: The dataset can be found here: [General Bathymetric Chart of the Oceans (GEBCO).3](https://www.gebco.net/data-products/gridded-bathymetry-data#area)
+
+-   **Exclusive Economic Zones**: Maritime boundaries using Exclusive Economic Zones off of the west coast of US. The dataset can be found here: [Marineregions.orgs](https://www.marineregions.org/eez.php) 
 
 
 ## Load Packages
 
 ```{r}
+#| output: false
 # Load libraries
 library(here)
 library(sf)
@@ -46,8 +55,11 @@ economic_zones <- st_read(here("data", "data", "wc_regions_clean.shp"))
 ```
 Check if the datasets have the same coordinate reference systems
 ```{r}
-print(st_crs(bathymetry) == st_crs(sea_temp_2008)) # True
-print(st_crs(bathymetry) == st_crs(economic_zones)) # True
+#| output: true
+# Check if bathymetry and sea surface temperature have matching CRS
+print(st_crs(bathymetry) == st_crs(sea_temp_2008)) 
+# Check if bathymetry and economic zones have matching CRS
+print(st_crs(bathymetry) == st_crs(economic_zones))
 
 ```
 
@@ -56,16 +68,11 @@ print(st_crs(bathymetry) == st_crs(economic_zones)) # True
 Find the mean SST from 2008-2012 (e.g. create single raster of average SST)
 
 ```{r}
-sst_mean <- (sea_temp_2008 + sea_temp_2009 + sea_temp_2010 + sea_temp_2011 + sea_temp_2012) / 5
+# Calculate average sea surface temperature across 2008-2012
+sst_mean <- (sea_temp_2008 + sea_temp_2009 + sea_temp_2010 + sea_temp_2011 +
+               sea_temp_2012) / 5
 ```
 
-```{r}
-crs(sst_mean) <- "EPSG:4326"
-```
-
-```{r}
-plot(sst_mean)
-```
 
 Convert average SST from Kelvin to Celsius
 hint: subtract by 273.15
@@ -75,22 +82,18 @@ hint: subtract by 273.15
 sst_mean_c <- sst_mean - 273.15
 ```
 
-```{r}
-plot(sst_mean_c)
-```
 
 Crop depth raster to match the extent of the SST raster
 note: the resolutions of the SST and depth data do not match
 
 
 ```{r}
+# Crop bathymetry to match SST extent
 bathy_crop <- crop(bathymetry, sst_mean_c)
 ```
 
 
-resample the depth data to match the resolution of the SST data using the nearest neighbor approach
-
-
+Resample the depth data to match the resolution of the SST data using the nearest neighbor approach
 
 
 ```{r}
@@ -99,16 +102,11 @@ bathymetry_resample <- resample(bathy_crop, y = sst_mean_c, method = "near")
 ```
 
 
-```{r}
-plot(bathymetry_resample)
-```
-
 Check that the depth and SST match in resolution, extent, and coordinate reference system
-hint: can the rasters be stacked?
 
 ```{r}
+#| output: true
 # Check whether the resolution match using the res() function
-
 if(all(res(bathymetry_resample) == res(sst_mean_c))){
   print("resolutions match")
 } else {
@@ -118,6 +116,7 @@ if(all(res(bathymetry_resample) == res(sst_mean_c))){
 ```
 
 ```{r}
+#| output: true
 # Check whether the extents match using the ext() function
 
 if(ext(bathymetry_resample) == ext(sst_mean_c)){
@@ -128,6 +127,7 @@ if(ext(bathymetry_resample) == ext(sst_mean_c)){
 ```
 
 ```{r}
+#| output: true
 # check and transform coordinate reference systems
 if(crs(bathymetry_resample) == crs(sst_mean_c)) {
   print("Coordinate reference systems match")
@@ -141,8 +141,7 @@ if(crs(bathymetry_resample) == crs(sst_mean_c)) {
 
 ## Find suitable locations for Oysters
 
-Oysters
-Research has shown that oysters need the following conditions for optimal growth:
+Oysters research has shown that oysters need the following conditions for optimal growth:
 
 Sea surface temperature: 11-30°C
 Depth: 0-70 meters below sea level
@@ -150,130 +149,216 @@ Depth: 0-70 meters below sea level
 Reclassify SST and depth data into locations that are suitable for oysters
 hint: set suitable values to 1 and unsuitable values to 0
 
-```{r}
-summary(bathymetry_resample)
-minmax(bathymetry_resample)
-global(bathymetry_resample, "range", na.rm = TRUE)
-```
-
 
 ```{r}
-# create reclassification matrix for the SST
+# Create reclassification matrix for the SST
 sst_rcl_mat <- matrix(c(-Inf, 11, 0,
                     11, 30, 1,
                     30, Inf, 0),
                   ncol = 3, byrow = TRUE)
 
-# use reclassification matrix to reclassify SST raster
+# Use reclassification matrix to reclassify SST raster
 sst_reclassified <- classify(sst_mean_c, rcl = sst_rcl_mat)
 
-# create reclassification matrix for the depth
+# Create reclassification matrix for the depth
 depth_rcl_mat <- matrix(c(-Inf, -70, 0,
                     -70, 0, 1,
                     0, Inf, 0),
                   ncol = 3, byrow = TRUE)
 
 
-# use reclassification matrix to reclassify depth raster
+# Use reclassification matrix to reclassify depth raster
 depth_reclassified <- classify(bathymetry_resample, rcl = depth_rcl_mat)
 ```
 
 
 
-```{r}
-plot(sst_reclassified)
-```
-```{r}
-plot(depth_reclassified)
-```
-
-
 Find locations that satisfy both SST and depth conditions
 
 ```{r}
-# Select only the cells that multiply iqual 1
+# Select only the cells where both conditions are met (multiplication equals 1)
 suitable_cells <- sst_reclassified * depth_reclassified
-#lapp
+
 ```
 
-```{r}
- suitable_oysters <- sst_reclassified == 1 & depth_reclassified == 1
-```
-
-```{r}
-plot(suitable_oysters, main = "Oyster Suitability\n (True = Suitable, False = Unsuitable)")
-```
-
-```{r}
-plot(suitable_cells)
-```
-
-
- 
 
 ## Determine the most suitable EEZ
 
 Select suitable cells within West Coast EEZs
 
-
 ```{r}
-# check and transform coordinate reference systems
-if(crs(economic_zones) == crs(sst_mean_c)) {
+#| output: true
+# Check and transform coordinate reference systems
+if(st_crs(economic_zones) == crs(sst_mean_c)) {
   print("Coordinate reference systems match")
-} else{
+} else {
   warning("Updating coordinate reference systems to match")
-  # transform data to match
-  bathymetry_resample <- transform(economic_zones, crs(sst_mean_c))
+  # Transform economic_zones to match raster CRS
+  economic_zones <- st_transform(economic_zones, crs(sst_mean_c))
 }
 ```
 Rasterize the EEZ data
 
 ```{r}
+# Convert EEZ polygons to raster format using region IDs
 ez_rast <- rasterize(economic_zones, suitable_cells, field = "rgn_id")
 ```
+
+Quantify and rank suitable aquaculture area by EEZ
 
 ```{r}
 # Calculate cell area in km²
 cell_area_km2 <- cellSize(suitable_cells, unit = "km")
-```
 
-```{r}
 # Calculate suitable area (multiply suitable cells by cell area)
 suitable_area <- suitable_cells * cell_area_km2
 
-```
-
-```{r}
 # Extract suitable area values for each EEZ polygon
 eez_areas <- extract(suitable_area, economic_zones, fun = "sum", na.rm = TRUE)
-```
 
-```{r}
 # Add the results to the economic_zones data
 economic_zones$suitable_area_km2 <- eez_areas[, 2]
-```
 
-```{r}
 # Sort by suitable area (descending)
 economic_zones_ranked <- economic_zones[order(-economic_zones$suitable_area_km2), ]
-```
 
+```
 
 
 ### Visualize the most suitable EEZ
 ```{r}
-
+#| output: true
 # Convert to data frame and select columns
 eez_table <- as.data.frame(economic_zones_ranked)[, c("rgn", "suitable_area_km2")]
 
 # Display ranked EEZ results in formatted table
 kable(eez_table, 
-      caption = "Top economic zones for Oysters",
+      caption = "Top economic zones for oysters on the west coast of the US",
       col.names = c("Region", "Suitable Area (km²)"),
       digits = 2, row.names = FALSE) %>% 
   kable_styling(font_size = 14,
                 full_width = FALSE)
 
 ```
+
+
+
+```{r}
+#| output: true
+# Plot a map showing the most suitable EEZ
+map_suitable_eez <- tm_shape(economic_zones_ranked) +
+  tm_polygons(col = "suitable_area_km2",
+              palette = "Reds",
+              title = "Suitable Area (km²)") +
+  tm_title(text = "West Coast EEZs Ranked by Suitable Area\nfor Oyster Aquaculture") +
+  tm_graticules() +
+  tm_basemap("Esri.OceanBasemap", alpha = 0.7) +
+  tm_layout(inner.margins = c(0.01, 0.01, 0.01, 0.1),
+            component.autoscale = FALSE)
+
+map_suitable_eez
+```
+
+
+
+
+## Make the workflow generalizable for other species by developing a function
+
+Translate the Oyster workflow into a function
+
+```{r}
+# Create a function with the arguments: species, min_temp, max_temp, min_depth,    max_depth
+
+suitable_eez_fun <- function(species, min_temp, max_temp, min_depth, max_depth){
+  
+    # Create reclassification matrix for the SST (make the values generalized)
+    sst_rcl_mat <- matrix(c(-Inf, min_temp, 0,
+                        min_temp, max_temp, 1,
+                        max_temp, Inf, 0),
+                      ncol = 3, byrow = TRUE)
+    
+    # Use reclassification matrix to reclassify SST raster
+    sst_reclassified <- classify(sst_mean_c, rcl = sst_rcl_mat)
+    
+    # Create reclassification matrix for the depth (make the values generalized)
+    depth_rcl_mat <- matrix(c(-Inf, min_depth, 0,
+                        min_depth, max_depth, 1,
+                        max_depth, Inf, 0),
+                      ncol = 3, byrow = TRUE)
+    # Use reclassification matrix to reclassify depth raster
+    depth_reclassified <- classify(bathymetry_resample, rcl = depth_rcl_mat)
+    
+    # Find locations that satisfy both SST and depth conditions
+    suitable_cells <- sst_reclassified * depth_reclassified
+    
+    # Transform economic_zones to match raster CRS (not bathymetry_resample!)
+    economic_zones_transformed <- st_transform(economic_zones, crs(sst_mean_c))
+    
+    # Rasterize the EEZ polygons
+    ez_rast <- rasterize(economic_zones_transformed, suitable_cells, field = "rgn_id")
+    
+    # Calculate cell area in km²
+    cell_area_km2 <- cellSize(suitable_cells, unit = "km")
+    
+    # Calculate suitable area (multiply suitable cells by cell area)
+    suitable_area <- suitable_cells * cell_area_km2
+    
+    # Extract suitable area values for each EEZ polygon
+    eez_areas <- extract(suitable_area, economic_zones_transformed, fun = "sum",
+                         na.rm = TRUE)
+    
+    # Add the results to the economic_zones data
+    economic_zones_transformed$suitable_area_km2 <- eez_areas[, 2]
+    
+    # Sort by suitable area (descending)
+    economic_zones_ranked <- economic_zones_transformed[order                                        (-economic_zones_transformed$suitable_area_km2), ]
+    
+    # Plot a map showing the most suitable EEZ
+    map_suitable_eez <- tm_shape(economic_zones_ranked) +
+      tm_polygons(col = "suitable_area_km2",
+                  palette = "Reds",
+                  title = "Suitable Area (km²)") +
+      tm_title(text = paste("West Coast EEZs Ranked by Suitable Area\nfor",
+                            species, "Aquaculture")) +
+      tm_graticules() +
+      tm_basemap("Esri.OceanBasemap", alpha = 0.7) +
+      tm_layout(inner.margins = c(0.01, 0.01, 0.01, 0.1),
+                component.autoscale = FALSE)
+    
+    return(map_suitable_eez)
+}
+```
+
+## Choose-your-own species
+
+- Xiphopenaeus kroyeri (Heller, 1862)
+- Atlantic Seabob shrimp 
+- Importance: highly commercial
+- depth range: 0 - 70 m
+- Temperature: 17°C - 26°C   
+  
+## Apply function for Atlantic Seabob Shrimp
+
+Test the function on the new range of temperature and depths
+  
+```{r}
+#| output: true
+# Apply the suitable EEZ function for Atlantic seabob shrimp
+suitable_eez_fun("Atlantic Seabob Shrimp", 17, 26, -70, 0)
+```
+  
+  
+## References
+  
+NOAA Coral Reef Watch Daily 5km Satellite Coral Bleaching Heat Stress SST Anomaly Product (Version 3.1). (2018). Noaa.gov. https://coralreefwatch.noaa.gov/product/5km/index_5km_ssta.php
+
+Gridded Bathymetry Data. (2025). GEBCO. https://www.gebco.net/data-products/gridded-bathymetry-data#area
+
+Marine Regions. (2025). Marineregions.org. https://www.marineregions.org/eez.php
+  
+Commercially Important Species Occurring in United States (contiguous states). (2025). Sealifebase.ca. https://www.sealifebase.ca/country/CountryChecklist.php?c_code=840&vhabitat=commercial
+  
+  
+  
 
 
