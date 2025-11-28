@@ -1,7 +1,7 @@
 ---
 title: "Prioritizing Potential Aquaculture"
 author: "Hylaea Miller"
-date: "11/26/2025"
+date: "11/27/2025"
 format: pdf
 execute: 
   message: false
@@ -40,17 +40,17 @@ Import the tree datasets: Sea Surface Temperature, Bathymetry and the Exclusive 
 
 ```{r}
 # Read in raster sea surface temperature data
-sea_temp_2008 <- rast(here("data", "data", "average_annual_sst_2008.tif"))
-sea_temp_2009 <- rast(here("data", "data", "average_annual_sst_2009.tif"))
-sea_temp_2010 <- rast(here("data", "data", "average_annual_sst_2010.tif"))
-sea_temp_2011 <- rast(here("data", "data", "average_annual_sst_2011.tif"))
-sea_temp_2012 <- rast(here("data", "data", "average_annual_sst_2012.tif"))
+sea_temp_2008 <- rast(here("data", "average_annual_sst_2008.tif"))
+sea_temp_2009 <- rast(here("data", "average_annual_sst_2009.tif"))
+sea_temp_2010 <- rast(here("data", "average_annual_sst_2010.tif"))
+sea_temp_2011 <- rast(here("data", "average_annual_sst_2011.tif"))
+sea_temp_2012 <- rast(here("data", "average_annual_sst_2012.tif"))
 
 # Read in raster sea bathymetry data
-bathymetry <- rast(here("data", "data", "depth.tif"))
+bathymetry <- rast(here("data", "depth.tif"))
 
 # Read in vector economic zones data
-economic_zones <- st_read(here("data", "data", "wc_regions_clean.shp"))
+economic_zones <- st_read(here("data", "wc_regions_clean.shp"))
 
 ```
 Check if the datasets have the same coordinate reference systems
@@ -267,7 +267,7 @@ map_suitable_eez
 Translate the Oyster workflow into a function
 
 ```{r}
-# Create a function with the arguments: species, min_temp, max_temp, min_depth,    max_depth
+# Create a function with the arguments: species, min_temp, max_temp, min_depth, max_depth
 
 suitable_eez_fun <- function(species, min_temp, max_temp, min_depth, max_depth){
   
@@ -357,6 +357,8 @@ Gridded Bathymetry Data. (2025). GEBCO. https://www.gebco.net/data-products/grid
 Marine Regions. (2025). Marineregions.org. https://www.marineregions.org/eez.php
   
 Commercially Important Species Occurring in United States (contiguous states). (2025). Sealifebase.ca. https://www.sealifebase.ca/country/CountryChecklist.php?c_code=840&vhabitat=commercial
+
+Oliver, R. (2025, November 25). Homework Assignment 4. Github.io. https://eds-223-geospatial.github.io/assignments/HW4.html
   
   
   
