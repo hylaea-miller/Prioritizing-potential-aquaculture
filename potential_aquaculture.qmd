@@ -8,6 +8,7 @@ execute:
   warning: false
   output: false
 ---
+
 ## Background
 
 Considering the important role that marine aquaculture plays in the global food supply, this analysis aims to determine which Exclusive Economic Zones (EEZs) on the West Coast of the US are best suited for developing marine aquaculture for oysters and the Atlantic seabob shrimp, as well as to build a generalized function for marine species that identifies suitable locations when specifying the range of acceptable sea surface temperature (SST) and depth values.
@@ -18,8 +19,7 @@ Considering the important role that marine aquaculture plays in the global food 
 
 -   **Bathymetry**: The dataset can be found here: [General Bathymetric Chart of the Oceans (GEBCO).3](https://www.gebco.net/data-products/gridded-bathymetry-data#area)
 
--   **Exclusive Economic Zones**: Maritime boundaries using Exclusive Economic Zones off of the west coast of US. The dataset can be found here: [Marineregions.orgs](https://www.marineregions.org/eez.php) 
-
+-   **Exclusive Economic Zones**: Maritime boundaries using Exclusive Economic Zones off of the west coast of US. The dataset can be found here: [Marineregions.orgs](https://www.marineregions.org/eez.php)
 
 ## Load Packages
 
@@ -53,7 +53,9 @@ bathymetry <- rast(here("data", "depth.tif"))
 economic_zones <- st_read(here("data", "wc_regions_clean.shp"))
 
 ```
+
 Check if the datasets have the same coordinate reference systems
+
 ```{r}
 #| output: true
 # Check if bathymetry and sea surface temperature have matching CRS
@@ -73,34 +75,26 @@ sst_mean <- (sea_temp_2008 + sea_temp_2009 + sea_temp_2010 + sea_temp_2011 +
                sea_temp_2012) / 5
 ```
 
-
-Convert average SST from Kelvin to Celsius
-hint: subtract by 273.15
+Convert average SST from Kelvin to Celsius hint: subtract by 273.15
 
 ```{r}
 # Covert by subtracting 273.15
 sst_mean_c <- sst_mean - 273.15
 ```
 
-
-Crop depth raster to match the extent of the SST raster
-note: the resolutions of the SST and depth data do not match
-
+Crop depth raster to match the extent of the SST raster note: the resolutions of the SST and depth data do not match
 
 ```{r}
 # Crop bathymetry to match SST extent
 bathy_crop <- crop(bathymetry, sst_mean_c)
 ```
 
-
 Resample the depth data to match the resolution of the SST data using the nearest neighbor approach
-
 
 ```{r}
 # Resample the bathymetry raster using method = "near"
 bathymetry_resample <- resample(bathy_crop, y = sst_mean_c, method = "near")
 ```
-
 
 Check that the depth and SST match in resolution, extent, and coordinate reference system
 
@@ -138,17 +132,13 @@ if(crs(bathymetry_resample) == crs(sst_mean_c)) {
 }
 ```
 
-
 ## Find suitable locations for Oysters
 
 Oysters research has shown that oysters need the following conditions for optimal growth:
 
-Sea surface temperature: 11-30°C
-Depth: 0-70 meters below sea level
+Sea surface temperature: 11-30°C Depth: 0-70 meters below sea level
 
-Reclassify SST and depth data into locations that are suitable for oysters
-hint: set suitable values to 1 and unsuitable values to 0
-
+Reclassify SST and depth data into locations that are suitable for oysters hint: set suitable values to 1 and unsuitable values to 0
 
 ```{r}
 # Create reclassification matrix for the SST
@@ -171,8 +161,6 @@ depth_rcl_mat <- matrix(c(-Inf, -70, 0,
 depth_reclassified <- classify(bathymetry_resample, rcl = depth_rcl_mat)
 ```
 
-
-
 Find locations that satisfy both SST and depth conditions
 
 ```{r}
@@ -180,7 +168,6 @@ Find locations that satisfy both SST and depth conditions
 suitable_cells <- sst_reclassified * depth_reclassified
 
 ```
-
 
 ## Determine the most suitable EEZ
 
@@ -197,6 +184,7 @@ if(st_crs(economic_zones) == crs(sst_mean_c)) {
   economic_zones <- st_transform(economic_zones, crs(sst_mean_c))
 }
 ```
+
 Rasterize the EEZ data
 
 ```{r}
@@ -224,8 +212,8 @@ economic_zones_ranked <- economic_zones[order(-economic_zones$suitable_area_km2)
 
 ```
 
-
 ### Visualize the most suitable EEZ
+
 ```{r}
 #| output: true
 # Convert to data frame and select columns
@@ -240,8 +228,6 @@ kable(eez_table,
                 full_width = FALSE)
 
 ```
-
-
 
 ```{r}
 #| output: true
@@ -258,9 +244,6 @@ map_suitable_eez <- tm_shape(economic_zones_ranked) +
 
 map_suitable_eez
 ```
-
-
-
 
 ## Make the workflow generalizable for other species by developing a function
 
@@ -331,36 +314,39 @@ suitable_eez_fun <- function(species, min_temp, max_temp, min_depth, max_depth){
 
 ## Choose-your-own species
 
-- Xiphopenaeus kroyeri (Heller, 1862)
-- Atlantic Seabob shrimp 
-- Importance: highly commercial
-- depth range: 0 - 70 m
-- Temperature: 17°C - 26°C   
-  
+-   Xiphopenaeus kroyeri (Heller, 1862)
+-   Atlantic Seabob shrimp
+-   Importance: highly commercial
+-   depth range: 0 - 70 m
+-   Temperature: 17°C - 26°C
+
 ## Apply function for Atlantic Seabob Shrimp
 
 Test the function on the new range of temperature and depths
-  
+
 ```{r}
 #| output: true
 # Apply the suitable EEZ function for Atlantic seabob shrimp
 suitable_eez_fun("Atlantic Seabob Shrimp", 17, 26, -70, 0)
 ```
-  
-  
+
+## Reflection
+
+This analysis successfully identified suitable locations for marine aquaculture along the West Coast of the United States by integrating multiple geospatial datasets and environmental parameters. The workflow demonstrated a systematic approach to site suitability modeling, combining sea surface temperature and bathymetry data to determine optimal conditions for oyster farming and Atlantic seabob shrimp cultivation.
+
+The analysis revealed significant variation in suitable aquaculture area across West Coast Exclusive Economic Zones. By quantifying the total suitable area within each EEZ, we provided actionable information for aquaculture planning and policy decisions. Oysters showed substantially greater suitable area than the Atlantic seabob shrimp. Due to the shrimp's narrower temperature tolerance range (17-26°C compared to oysters' 11-30°C), suitable areas were confined to the southern portion of the West Coast EEZ, where waters are warmer. This geographic constraint highlights how species-specific environmental requirements significantly influence site selection outcomes.
+
+It is important to acknowledge the limitations of this analysis, considering that only two environmental parameters were asses in this analysis (temperature and depth). In practice, aquaculture site selection involves numerous additional factors, including water quality parameters, ocean currents, proximity to coastal infrastructure, environmental regulations, and potential conflicts with other marine uses. Adding these factors would help narrow down the best locations more precisely. Still, this analysis provides a useful starting point for understanding where aquaculture could be viable along the West Coast. The approach is flexible and can be built upon by including additional environmental and economic considerations as needed.
+
+
 ## References
-  
+
 NOAA Coral Reef Watch Daily 5km Satellite Coral Bleaching Heat Stress SST Anomaly Product (Version 3.1). (2018). Noaa.gov. https://coralreefwatch.noaa.gov/product/5km/index_5km_ssta.php
 
 Gridded Bathymetry Data. (2025). GEBCO. https://www.gebco.net/data-products/gridded-bathymetry-data#area
 
 Marine Regions. (2025). Marineregions.org. https://www.marineregions.org/eez.php
-  
+
 Commercially Important Species Occurring in United States (contiguous states). (2025). Sealifebase.ca. https://www.sealifebase.ca/country/CountryChecklist.php?c_code=840&vhabitat=commercial
 
 Oliver, R. (2025, November 25). Homework Assignment 4. Github.io. https://eds-223-geospatial.github.io/assignments/HW4.html
-  
-  
-  
-
-
